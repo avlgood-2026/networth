@@ -43,7 +43,7 @@ D1 triggers invalidate all portfolio values affected by transaction edits. Recal
 
 ## Deploy for the first time
 
-1. **Create GitHub repository.** In GitHub, create an empty private repository (no generated README). This project already has a Git repository on branch `main`; after cloning Git initialization is unnecessary.
+1. **Create GitHub repository.** In GitHub, create an empty repository (private is recommended for a personal tracker; no generated README). This project already has a Git repository on branch `main`; after cloning Git initialization is unnecessary.
 
    ```sh
    git status --short
@@ -92,7 +92,7 @@ D1 triggers invalidate all portfolio values affected by transaction edits. Recal
 
 8. **Verify D1 binding and cron.** In Worker Settings → Bindings, confirm `DB` points to `portfolio`. Settings → Trigger Events should show `30 23 * * MON-FRI`. Wrangler config is the source of truth; changing it and deploying configures the trigger. Trigger changes can take time to propagate. `23:30 UTC` is 19:30 EDT / 18:30 EST, providing 3½ / 2½ hours after the regular close. It also safely follows early closes. This buffer is not a provider publication guarantee: exact-date data is still validated.
 
-9. **Verify the site.** Open the deployed `workers.dev` URL, confirm the empty state or real chart. This dashboard is read-only but publicly readable by default. For private holdings, enable Cloudflare Access on the application domain and restrict access to your identity before importing private data; also protect or disable alternate public hostnames. Admin endpoints always require their own bearer secret.
+9. **Verify the site.** Open the deployed `workers.dev` URL, confirm the empty state or real chart. This dashboard is read-only but publicly readable by default. A public GitHub repository exposes the source code, though secrets remain outside Git; the deployed dashboard still needs Cloudflare Access before importing private portfolio data. For private holdings, enable Cloudflare Access on the application domain and restrict access to your identity before importing private data; also protect or disable alternate public hostnames. Admin endpoints always require their own bearer secret.
 
 10. **Verify EOD sync.** From a trusted shell, supply the production secret without saving it in source:
 
