@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "personal-portfolio",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "portfolio",
+      "database_id": "59c32d5f-71da-404c-83ef-c54315b326bc",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "EOD_READY_UTC_HOUR": "23"
+  },
+  "triggers": {
+    "crons": [
+      "30 23 * * MON-FRI"
+    ]
+  },
+  "observability": {
+    "enabled": true
+  }
+}
