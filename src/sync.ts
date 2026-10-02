@@ -1,10 +1,14 @@
 import { latestCompleted, tradingDay } from './calendar';
 import { holdingsAt, valueAt, type Transaction } from './portfolio';
+import { portfolioDate } from './date';
 type Asset={ticker:string;kind:'stock'|'crypto'};
 export async function fetchClose(ticker:string,date:string,key:string,fetcher:typeof fetch=fetch,kind:'stock'|'crypto'='stock') {
  if(!key) throw new Error('Market data secret is not configured');
  const url=new URL('https://api.twelvedata.com/time_series');
- const query:Record<string,string>={symbol:ticker,interval:'1day',start_date:date,end_date:date,outputsize:'1',apikey:key};
+ // Give the provider a one-day range; a zero-length start/end window can
+ // return "No data" even when the requested daily bar exists.
+ const endDate=new Date(new Date(date+'T12:00:00Z').getTime()+86400000).toISOString().slice(0,10);
+ const query:Record<string,string>={symbol:ticker,interval:'1day',start_date:date,end_date:endDate,outputsize:'2',apikey:key};
  if(kind==='stock') { query.adjust='none'; query.country='United States'; }
  else query.timezone='UTC';
  url.search=new URLSearchParams(query).toString();
@@ -29,7 +33,7 @@ async function transactionSnapshot(env:CloudflareEnv) {
 async function cachedPrices(env:CloudflareEnv,date:string,assets:Map<string,Asset['kind']>) {
  const prices=new Map<string,string>();
  for(const [ticker,kind] of assets) {
-  const priceDate=kind==='stock'?latestCompleted(date===new Date().toISOString().slice(0,10)?new Date():new Date(date+'T23:30:00Z')):(date===new Date().toISOString().slice(0,10)?new Date(Date.now()-86400000).toISOString().slice(0,10):date);
+  const priceDate=kind==='stock'?latestCompleted(date===portfolioDate(new Date())?new Date():new Date(date+'T23:30:00Z')):(date===portfolioDate(new Date())?new Date(Date.now()-86400000).toISOString().slice(0,10):date);
   const row=await env.DB.prepare('SELECT close FROM daily_prices WHERE ticker=? AND date=?').bind(ticker,priceDate).first<{close:string}>();
   if(row) prices.set(ticker,row.close);
  }
@@ -45,7 +49,7 @@ export async function recalculate(env:CloudflareEnv,date:string) {
 export async function sync(env:CloudflareEnv,now=new Date(),scheduled=false) {
  // Cron at 06:30 UTC values the just-completed UTC day. Manual sync is a
  // current estimate using the latest completed stock/crypto closes.
- const date=new Date(now.getTime()-(scheduled?86400000:0)).toISOString().slice(0,10);
+ const date=scheduled?new Date(now.getTime()-86400000).toISOString().slice(0,10):portfolioDate(now);
  const {version,tx,assets}=await transactionSnapshot(env);
  const active=[...holdingsAt(tx,date)].filter(([,quantity])=>!quantity.isZero());
  if(!active.length) return {status:'skipped',reason:'No holdings for date',date};

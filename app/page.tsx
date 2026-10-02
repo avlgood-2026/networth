@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { hasSession } from '../src/auth';
 import { holdingsAt,type Transaction } from '../src/portfolio';
+import { portfolioDate } from '../src/date';
 import Login from './login';
 import Dashboard from './dashboard';
 export const dynamic='force-dynamic';
@@ -19,7 +20,7 @@ export default async function Page() {
  const kinds=new Map(assets.results.map(a=>[a.ticker,a.kind]));
  const latest=new Map<string,{date:string;close:string}>();
  for(const row of priceRows.results) if(!latest.has(row.ticker)) latest.set(row.ticker,{date:row.date,close:row.close});
- const today=new Date().toISOString().slice(0,10);
+ const today=portfolioDate(new Date());
  const holdings=[...holdingsAt(tx.results,today)].filter(([,qty])=>!qty.isZero()).map(([ticker,qty])=>{
   const price=latest.get(ticker);
   return {ticker,kind:kinds.get(ticker)??'stock',quantity:qty.toString(),close:price?.close??null,priceDate:price?.date??null,value:price?qty.times(new Decimal(price.close)).toFixed(2):null};

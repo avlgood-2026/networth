@@ -95,6 +95,6 @@ test('manual sync uses previous trading close when the newest bar is unpublished
   const result=await sync(env,new Date('2026-10-02T02:30:00Z'));
   assert.equal(result.status,'synced');
   assert.deepEqual(requested,['2026-10-01','2026-09-30']);
-  assert.equal(db.prepare("SELECT market_value FROM portfolio_daily WHERE date='2026-10-02'").get()?.market_value,'1608.00');
+  assert.equal(db.prepare("SELECT market_value FROM portfolio_daily WHERE date='2026-10-01'").get()?.market_value,'1608.00');
  } finally {globalThis.fetch=original;db.close();}
 });

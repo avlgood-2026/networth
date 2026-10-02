@@ -4,6 +4,11 @@ import { latestCompleted,tradingDay } from '../src/calendar';
 import { valueAt } from '../src/portfolio';
 import { fetchClose,sync } from '../src/sync';
 import { authorized } from '../src/auth';
+import { portfolioDate } from '../src/date';
+test('portfolio dates follow Pacific time across UTC midnight',()=>{
+ assert.equal(portfolioDate(new Date('2026-10-02T02:30:00Z')),'2026-10-01');
+ assert.equal(portfolioDate(new Date('2026-10-02T08:30:00Z')),'2026-10-02');
+});
 test('weekends, holidays, summer/winter cutoff and early closes',()=>{
  assert.equal(latestCompleted(new Date('2026-10-01T22:59:00Z')),'2026-09-30');
  assert.equal(latestCompleted(new Date('2026-10-01T23:30:00Z')),'2026-10-01');
@@ -26,6 +31,12 @@ test('market data refuses stale, unavailable, non USD and invalid prices',async(
   await assert.rejects(fetchClose('AAPL','2026-09-30','test',async()=>Response.json(body)));
  }
  assert.equal(await fetchClose('AAPL','2026-09-30','test',async()=>Response.json({meta:{currency:'USD',symbol:'AAPL'},values:[{datetime:'2026-09-30',close:'201.12'}]})),'201.12');
+ assert.equal(await fetchClose('AAPL','2026-09-30','test',async(input)=>{
+  const url=new URL(String(input));
+  assert.equal(url.searchParams.get('start_date'),'2026-09-30');
+  assert.equal(url.searchParams.get('end_date'),'2026-10-01');
+  return Response.json({meta:{currency:'USD',symbol:'AAPL'},values:[{datetime:'2026-10-01',close:'202'},{datetime:'2026-09-30',close:'201'}]});
+ }),'201');
  await assert.rejects(fetchClose('AAPL','2026-09-30','test',async()=>Response.json({status:'error',code:429,message:'credits exhausted for test'})),/credits exhausted for \[redacted\]/);
  await assert.rejects(fetchClose('AAPL','2026-09-30','test',async()=>Response.json({status:'error',code:400,message:'Invalid parameter'}, {status:400})),/Invalid parameter/);
 });
