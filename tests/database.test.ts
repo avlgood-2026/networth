@@ -8,11 +8,13 @@ function fixture() {
  db.exec(readFileSync('migrations/0001_initial.sql','utf8'));
  db.exec(readFileSync('migrations/0002_revision_guard.sql','utf8'));
  db.exec(readFileSync('seeds/demo.sql','utf8'));
+ db.exec(readFileSync('migrations/0003_assets_auth.sql','utf8'));
  function prepare(sql:string) {
   let values: (string|number)[]=[];
   return {
    bind(...args:(string|number)[]) { values=args; return this; },
    async all() { return {results:db.prepare(sql).all(...values)}; },
+   async first() { return db.prepare(sql).get(...values); },
    async run() { return db.prepare(sql).run(...values); }
   };
  }
@@ -53,4 +55,28 @@ test('transaction edits during provider request abort all derived writes',async(
   assert.equal(db.prepare("SELECT close FROM daily_prices WHERE date='2026-09-30'").get()?.close,'201');
   assert.equal(db.prepare("SELECT count(*) AS n FROM portfolio_daily WHERE date='2026-09-30'").get()?.n,0);
  } finally { globalThis.fetch=original; db.close(); }
+});
+
+test('scheduled stock-only run skips holidays without market data calls',async()=>{
+ const {db,env}=fixture(); const original=globalThis.fetch;
+ try {
+  globalThis.fetch=async()=>{ throw new Error('provider should not be called'); };
+  const result=await sync(env,new Date('2026-12-26T00:30:00Z'),true);
+  assert.equal(result.status,'skipped');
+  assert.equal(db.prepare("SELECT count(*) AS n FROM portfolio_daily WHERE date='2026-12-25'").get()?.n,0);
+ } finally {globalThis.fetch=original;db.close();}
+});
+
+test('scheduled crypto portfolio values a completed weekend UTC day',async()=>{
+ const {db,env}=fixture(); const original=globalThis.fetch;
+ try {
+  db.exec('DELETE FROM transactions');
+  db.exec("INSERT INTO assets(ticker,kind) VALUES('BTC/USD','crypto')");
+  db.exec("INSERT INTO transactions(id,ticker,transaction_date,type,quantity_delta) VALUES('crypto-buy','BTC/USD','2026-10-01','BUY','0.1')");
+  globalThis.fetch=async()=>Response.json({meta:{symbol:'BTC/USD',currency:'USD'},values:[{datetime:'2026-10-04',close:'50000'}]});
+  const result=await sync(env,new Date('2026-10-05T00:30:00Z'),true);
+  assert.equal(result.status,'synced');
+  assert.equal(db.prepare("SELECT market_value FROM portfolio_daily WHERE date='2026-10-04'").get()?.market_value,'5000.00');
+  assert.equal(db.prepare("SELECT close FROM daily_prices WHERE ticker='BTC/USD' AND date='2026-10-04'").get()?.close,'50000');
+ } finally {globalThis.fetch=original;db.close();}
 });

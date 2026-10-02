@@ -9,7 +9,7 @@
     "preview": "npm run build:worker && wrangler dev --test-scheduled",
     "deploy": "npm run build:worker && opennextjs-cloudflare deploy",
     "deploy:ci": "npm run db:migrate:remote && opennextjs-cloudflare deploy",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "db": "wrangler d1 execute portfolio --local",
     "db:migrate": "wrangler d1 migrations apply portfolio --local",

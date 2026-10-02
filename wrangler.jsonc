@@ -24,7 +24,7 @@
   },
   "triggers": {
     "crons": [
-      "30 23 * * MON-FRI"
+      "30 0 * * *"
     ]
   },
   "observability": {

@@ -1,9 +1,9 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { authorized } from '../../../../src/auth';
+import { authorized, hasSession, sameOrigin } from '../../../../src/auth';
 import { sync,recalculate } from '../../../../src/sync';
 export async function POST(request:Request,{params}:{params:Promise<{action:string}>}) {
  const {env}=await getCloudflareContext({async:true});
- if(!await authorized(request,env.CRON_SECRET)) return Response.json({error:'Unauthorized'},{status:401});
+ if(!await authorized(request,env.CRON_SECRET) && !(sameOrigin(request) && await hasSession(request,env.CRON_SECRET))) return Response.json({error:'Unauthorized'},{status:401});
  const {action}=await params;
  try {
   if(action==='sync') return Response.json(await sync(env));

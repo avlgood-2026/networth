@@ -27,10 +27,6 @@ test('market data refuses stale, unavailable, non USD and invalid prices',async(
  }
  assert.equal(await fetchClose('AAPL','2026-09-30','test',async()=>Response.json({meta:{currency:'USD',symbol:'AAPL'},values:[{datetime:'2026-09-30',close:'201.12'}]})),'201.12');
 });
-test('scheduled holidays exit before DB or provider access',async()=>{
- assert.equal((await sync({} as CloudflareEnv,new Date('2026-12-25T23:30:00Z'),true)).status,'skipped');
- assert.equal((await sync({} as CloudflareEnv,new Date('2026-10-03T23:30:00Z'),true)).status,'skipped');
-});
 test('admin auth fails closed',async()=>{
  const secret='a'.repeat(64);
  assert.equal(await authorized(new Request('http://local'),secret),false);

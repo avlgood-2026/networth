@@ -1,8 +1,28 @@
+import Decimal from 'decimal.js';
+import { headers } from 'next/headers';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import Chart from './chart';
+import { hasSession } from '../src/auth';
+import { holdingsAt,type Transaction } from '../src/portfolio';
+import Login from './login';
+import Dashboard from './dashboard';
 export const dynamic='force-dynamic';
 export default async function Page() {
  const {env}=await getCloudflareContext({async:true});
- const {results}=await env.DB.prepare('SELECT date,market_value FROM portfolio_daily ORDER BY date').all<{date:string;market_value:string}>();
- return <main className="mx-auto max-w-5xl p-10"><p className="text-sm uppercase tracking-widest text-teal-700">Personal portfolio · USD</p><h1 className="my-5 text-4xl font-semibold">Portfolio history</h1><section className="rounded-2xl bg-white p-8 shadow-sm"><p className="text-gray-500">Latest cached market value · {results.at(-1)?.date??'No data yet'}</p><p className="my-4 text-4xl">{Number(results.at(-1)?.market_value??0).toLocaleString('en-US',{style:'currency',currency:'USD'})}</p>{results.length?<Chart data={results.map(r=>({date:r.date,value:Number(r.market_value)}))}/>:<p>Run migrations, add transactions, then sync latest prices.</p>}</section><p className="mt-6 text-sm text-gray-600">Values use holdings on each trading date and that date’s closing prices. Cash and dividends are excluded. Sync is available through the protected admin endpoint.</p></main>;
+ const incoming=await headers();
+ if(!await hasSession(new Request('https://portfolio.local/',{headers:{cookie:incoming.get('cookie')??''}}),env.CRON_SECRET)) return <Login/>;
+ const [tx,assets,history,priceRows]=await Promise.all([
+  env.DB.prepare('SELECT ticker,transaction_date,quantity_delta FROM transactions').all<Transaction>(),
+  env.DB.prepare('SELECT ticker,kind FROM assets').all<{ticker:string;kind:'stock'|'crypto'}>(),
+  env.DB.prepare('SELECT date,market_value FROM portfolio_daily ORDER BY date').all<{date:string;market_value:string}>(),
+  env.DB.prepare('SELECT ticker,date,close FROM daily_prices ORDER BY date DESC').all<{ticker:string;date:string;close:string}>()
+ ]);
+ const kinds=new Map(assets.results.map(a=>[a.ticker,a.kind]));
+ const latest=new Map<string,{date:string;close:string}>();
+ for(const row of priceRows.results) if(!latest.has(row.ticker)) latest.set(row.ticker,{date:row.date,close:row.close});
+ const today=new Date().toISOString().slice(0,10);
+ const holdings=[...holdingsAt(tx.results,today)].filter(([,qty])=>!qty.isZero()).map(([ticker,qty])=>{
+  const price=latest.get(ticker);
+  return {ticker,kind:kinds.get(ticker)??'stock',quantity:qty.toString(),close:price?.close??null,priceDate:price?.date??null,value:price?qty.times(new Decimal(price.close)).toFixed(2):null};
+ });
+ return <Dashboard holdings={holdings} history={history.results.map(r=>({date:r.date,value:Number(r.market_value)}))}/>;
 }
