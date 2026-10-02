@@ -12,9 +12,12 @@ export async function fetchClose(ticker:string,date:string,key:string,fetcher:ty
  try { response=await fetcher(url,{signal:AbortSignal.timeout(20000)}); }
  catch { throw new Error(`Market data request failed for ${ticker}`); }
  if(!response.ok) throw new Error(`Market data HTTP ${response.status} for ${ticker}`);
- const body=await response.json() as {status?:string;meta?:{currency?:string;symbol?:string};values?:{datetime:string;close:string}[]};
+ const body=await response.json() as {status?:string;code?:number;message?:string;meta?:{currency?:string;symbol?:string};values?:{datetime:string;close:string}[]};
  const bar=body.values?.find(v=>v.datetime===date);
- if(body.status==='error' || !bar || !/^\d+(\.\d+)?$/.test(bar.close) || Number(bar.close)<=0 || body.meta?.currency!=='USD' || body.meta?.symbol!==ticker) throw new Error(`Final USD daily close unavailable for ${ticker} on ${date}`);
+ if(body.status==='error') throw new Error(`Twelve Data error ${body.code??'unknown'} for ${ticker}: ${String(body.message??'request rejected').replaceAll(key,'[redacted]').slice(0,160)}`);
+ if(!bar) throw new Error(`Final daily close unavailable for ${ticker} on ${date}; provider returned ${body.values?.[0]?.datetime??'no date'}`);
+ if(!/^\d+(\.\d+)?$/.test(bar.close) || Number(bar.close)<=0) throw new Error(`Invalid daily close for ${ticker} on ${date}`);
+ if(body.meta?.currency!=='USD' || body.meta?.symbol!==ticker) throw new Error(`Unexpected currency or symbol for ${ticker} on ${date}`);
  return bar.close;
 }
 async function transactionSnapshot(env:CloudflareEnv) {

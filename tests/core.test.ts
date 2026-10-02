@@ -26,6 +26,7 @@ test('market data refuses stale, unavailable, non USD and invalid prices',async(
   await assert.rejects(fetchClose('AAPL','2026-09-30','test',async()=>Response.json(body)));
  }
  assert.equal(await fetchClose('AAPL','2026-09-30','test',async()=>Response.json({meta:{currency:'USD',symbol:'AAPL'},values:[{datetime:'2026-09-30',close:'201.12'}]})),'201.12');
+ await assert.rejects(fetchClose('AAPL','2026-09-30','test',async()=>Response.json({status:'error',code:429,message:'credits exhausted for test'})),/credits exhausted for \[redacted\]/);
 });
 test('admin auth fails closed',async()=>{
  const secret='a'.repeat(64);

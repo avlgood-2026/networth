@@ -12,5 +12,5 @@ export async function POST(request:Request,{params}:{params:Promise<{action:stri
    return Response.json(await recalculate(env,body.date));
   }
   return Response.json({error:'Not found'},{status:404});
- } catch { return Response.json({error:'Operation failed. Check calendar, holdings, API availability and exact-date cached prices.'},{status:503}); }
+ } catch(error) { return Response.json({error:error instanceof Error?error.message:'Operation failed'},{status:503}); }
 }
