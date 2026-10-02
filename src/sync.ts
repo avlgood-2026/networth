@@ -11,8 +11,8 @@ export async function fetchClose(ticker:string,date:string,key:string,fetcher:ty
  let response:Response;
  try { response=await fetcher(url,{signal:AbortSignal.timeout(20000)}); }
  catch { throw new Error(`Market data request failed for ${ticker}`); }
- if(!response.ok) throw new Error(`Market data HTTP ${response.status} for ${ticker}`);
- const body=await response.json() as {status?:string;code?:number;message?:string;meta?:{currency?:string;symbol?:string};values?:{datetime:string;close:string}[]};
+ const body=await response.json().catch(()=>({})) as {status?:string;code?:number;message?:string;meta?:{currency?:string;symbol?:string};values?:{datetime:string;close:string}[]};
+ if(!response.ok) throw new Error(`Twelve Data HTTP ${response.status} for ${ticker}: ${String(body.message??'request failed').replaceAll(key,'[redacted]').slice(0,160)}`);
  const bar=body.values?.find(v=>v.datetime===date);
  if(body.status==='error') throw new Error(`Twelve Data error ${body.code??'unknown'} for ${ticker}: ${String(body.message??'request rejected').replaceAll(key,'[redacted]').slice(0,160)}`);
  if(!bar) throw new Error(`Final daily close unavailable for ${ticker} on ${date}; provider returned ${body.values?.[0]?.datetime??'no date'}`);
