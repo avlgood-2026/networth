@@ -31,7 +31,7 @@ npm run preview
 
 ## Transactions and valuation
 
-Transactions are the source of truth. Log in and use **添加交易** to select a stock/ETF or crypto, enter its ticker (e.g. `AAPL` or `BTC/USD`), quantity in units and trade date. BUY increases holdings; SELL reduces them. Click **同步最新价格** to fetch closes and calculate net worth. The chart accumulates one point per successful daily sync; it does not fabricate missing history. The write API requires an admin session. For maintenance, you can also use Wrangler D1 commands, inserting the asset type first:
+Transactions are the source of truth. Log in and use **添加交易** to select a stock/ETF or crypto, enter its ticker (e.g. `AAPL` or `BTC/USD`), quantity in units and trade date. BUY increases holdings; SELL reduces them. **股数重置** sets the target holding on that date by recording only the difference as a BUY or SELL transaction: 100 to 104 records a purchase of 4, while 100 to 96 records a sale of 4. A target of zero closes the holding; an unchanged target adds no transaction. Backdated changes that would make later holdings negative are rejected. Click **同步最新价格** after changing transactions to refresh the cached net worth. **当前持仓** sorts by estimated market value; **持仓占比** shows the proportion of each priced asset. Click a holding to see its cumulative share/unit history and daily changes. The net-worth chart accumulates one point per successful daily sync; it does not fabricate missing history. The write API requires an admin session. For maintenance, you can also use Wrangler D1 commands, inserting the asset type first:
 
 ```sh
 npm run db -- --command "INSERT INTO assets(ticker,kind) VALUES('MSFT','stock')"

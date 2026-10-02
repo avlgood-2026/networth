@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { latestCompleted,tradingDay } from '../src/calendar';
-import { valueAt } from '../src/portfolio';
+import { valueAt,resetDelta,holdingsAt,quantityTimelines } from '../src/portfolio';
 import { fetchClose,sync } from '../src/sync';
 import { authorized } from '../src/auth';
 import { portfolioDate } from '../src/date';
@@ -25,6 +25,25 @@ test('historical signed holdings and exact decimal arithmetic',()=>{
  assert.throws(()=>valueAt(rows,'2026-09-30',new Map()));
  assert.throws(()=>valueAt([{...rows[0],quantity_delta:'-1'}],'2026-09-30',new Map([['AAPL','1']])));
  assert.equal(valueAt([...rows,{...rows[0],quantity_delta:'-8.1'}],'2026-09-30',new Map()),'0.00');
+});
+test('reset records only the difference from holdings on that date',()=>{
+ const rows=[{ticker:'AAPL',transaction_date:'2026-09-28',quantity_delta:'100'},{ticker:'AAPL',transaction_date:'2026-10-02',quantity_delta:'3'}];
+ assert.equal(resetDelta(rows,'AAPL','2026-10-01','104').toString(),'4');
+ assert.equal(resetDelta(rows,'AAPL','2026-10-01','96').toString(),'-4');
+ assert.equal(resetDelta(rows,'AAPL','2026-10-01','100').toString(),'0');
+ const delta=resetDelta(rows,'AAPL','2026-10-01','104');
+ assert.equal(holdingsAt([...rows,{ticker:'AAPL',transaction_date:'2026-10-01',quantity_delta:delta.toString()}],'2026-10-02').get('AAPL')?.toString(),'107');
+});
+test('quantity timeline groups same-day changes and keeps historical totals',()=>{
+ const timeline=quantityTimelines([
+  {ticker:'AAPL',transaction_date:'2026-09-30',quantity_delta:'2.5'},
+  {ticker:'AAPL',transaction_date:'2026-10-01',quantity_delta:'1.25'},
+  {ticker:'AAPL',transaction_date:'2026-10-01',quantity_delta:'-0.5'}
+ ]).AAPL;
+ assert.deepEqual(timeline,[
+  {date:'2026-09-30',quantity:'2.5',delta:'2.5'},
+  {date:'2026-10-01',quantity:'3.25',delta:'0.75'}
+ ]);
 });
 test('market data refuses stale, unavailable, non USD and invalid prices',async()=>{
  for(const body of [{status:'error'},{meta:{currency:'USD',symbol:'AAPL'},values:[{datetime:'2026-09-29',close:'2'}]},{meta:{currency:'EUR',symbol:'AAPL'},values:[{datetime:'2026-09-30',close:'2'}]}]) {

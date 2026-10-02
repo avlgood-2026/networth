@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import { headers } from 'next/headers';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { hasSession } from '../src/auth';
-import { holdingsAt,type Transaction } from '../src/portfolio';
+import { holdingsAt,quantityTimelines,type Transaction } from '../src/portfolio';
 import { portfolioDate } from '../src/date';
 import Login from './login';
 import Dashboard from './dashboard';
@@ -24,6 +24,9 @@ export default async function Page() {
  const holdings=[...holdingsAt(tx.results,today)].filter(([,qty])=>!qty.isZero()).map(([ticker,qty])=>{
   const price=latest.get(ticker);
   return {ticker,kind:kinds.get(ticker)??'stock',quantity:qty.toString(),close:price?.close??null,priceDate:price?.date??null,value:price?qty.times(new Decimal(price.close)).toFixed(2):null};
+ }).sort((a,b)=>{
+  if(a.value===null || b.value===null) return a.value===null&&b.value===null?a.ticker.localeCompare(b.ticker):a.value===null?1:-1;
+  return new Decimal(b.value).cmp(a.value)||a.ticker.localeCompare(b.ticker);
  });
- return <Dashboard holdings={holdings} history={history.results.map(r=>({date:r.date,value:Number(r.market_value)}))}/>;
+ return <Dashboard holdings={holdings} history={history.results.map(r=>({date:r.date,value:Number(r.market_value)}))} quantityHistory={quantityTimelines(tx.results)}/>;
 }
