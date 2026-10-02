@@ -80,3 +80,21 @@ test('scheduled crypto portfolio values a completed weekend UTC day',async()=>{
   assert.equal(db.prepare("SELECT close FROM daily_prices WHERE ticker='BTC/USD' AND date='2026-10-04'").get()?.close,'50000');
  } finally {globalThis.fetch=original;db.close();}
 });
+
+test('manual sync uses previous trading close when the newest bar is unpublished',async()=>{
+ const {db,env}=fixture(); const original=globalThis.fetch;
+ const requested:string[]=[];
+ try {
+  globalThis.fetch=async(input)=>{
+   const day=new URL(String(input)).searchParams.get('start_date')??'';
+   requested.push(day);
+   return day==='2026-10-01'
+    ? Response.json({status:'error',code:400,message:'No data is available on the specified dates. Try setting different start/end dates.'},{status:400})
+    : Response.json({meta:{symbol:'AAPL',currency:'USD'},values:[{datetime:'2026-09-30',close:'201'}]});
+  };
+  const result=await sync(env,new Date('2026-10-02T02:30:00Z'));
+  assert.equal(result.status,'synced');
+  assert.deepEqual(requested,['2026-10-01','2026-09-30']);
+  assert.equal(db.prepare("SELECT market_value FROM portfolio_daily WHERE date='2026-10-02'").get()?.market_value,'1608.00');
+ } finally {globalThis.fetch=original;db.close();}
+});

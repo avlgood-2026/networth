@@ -92,7 +92,7 @@ D1 triggers invalidate all portfolio values affected by transaction edits. Recal
 
 7. **Deploy.** Trigger the Cloudflare build or push a commit. For an initial CLI deployment or recovery, run `npm run deploy` after remote migrations. The custom `worker.ts` forwards HTTP to OpenNext and exports the scheduled handler. The build must complete before Wrangler can resolve the generated module.
 
-8. **Verify D1 binding and cron.** In Worker Settings → Bindings, confirm `DB` points to `portfolio`. Settings → Trigger Events should show `30 0 * * *`. The daily `00:30 UTC` schedule is 20:30 EDT / 19:30 EST on the previous US calendar date, leaving 4½ / 3½ hours after the regular close. It also follows the completed UTC crypto day. Exact-date provider data is still validated. Stock-only portfolios skip holidays and weekends; crypto portfolios continue daily.
+8. **Verify D1 binding and cron.** In Worker Settings → Bindings, confirm `DB` points to `portfolio`. Settings → Trigger Events should show `30 6 * * *`. The daily `06:30 UTC` schedule is 02:30 EDT / 01:30 EST, leaving 10½ / 9½ hours after the previous regular close to allow Twelve Data to publish its final bar. It also follows the completed UTC crypto day. Exact-date provider data is still validated. Stock-only portfolios skip holidays and weekends; crypto portfolios continue daily.
 
 9. **Verify the site.** Open the deployed `workers.dev` URL. The first page should show only the administrator password form; a private browser window must not show holdings or net worth. Log in, add a real holding, click **同步最新价格**, and check the holding and chart. The password stays on the server; sessions use an HttpOnly, Secure, SameSite cookie. You can also add Cloudflare Access for another security layer. API maintenance endpoints retain bearer-secret access.
 
@@ -113,7 +113,7 @@ D1 triggers invalidate all portfolio values affected by transaction edits. Recal
 
 ## EOD behavior and recovery
 
-The calendar uses the NYSE's published 2026–2028 holiday dates in `src/calendar.ts`; review it annually and add extraordinary closures as announced. Unsupported years fail closed. Cron runs daily: stock-only portfolios skip closed market days, while crypto portfolios continue. Manual sync uses the latest completed US trading session for stocks and the latest completed UTC day for crypto; the current-day value is an estimate from those closes.
+The calendar uses the NYSE's published 2026–2028 holiday dates in `src/calendar.ts`; review it annually and add extraordinary closures as announced. Unsupported years fail closed. Cron runs daily: stock-only portfolios skip closed market days, while crypto portfolios continue. Manual sync first requests the latest completed US trading session for stocks and the latest completed UTC day for crypto. If that exact bar is not published yet, it tries the prior completed day and shows the actual quote date beside each holding. The current-day value is an estimate from those closes. Scheduled valuation never falls back to an older close.
 
 The job fetches every ticker used through that date, including closed positions, verifies the returned date, symbol, USD currency and positive close, computes historical holdings, then atomically upserts all prices and the total using D1 batch. Repeats update the same unique keys and can incorporate provider corrections. If any ticker fails, no partial portfolio value is published. Requests are sequential, spaced approximately eight seconds apart; inspect your Twelve Data plan's credit limits. Large portfolios, delisted instruments and missing historical data may require manual data maintenance. No automatic retry queue is used. Check failed scheduled events and run manual sync after delayed data becomes available; a missed older date needs explicit historical import and recalculation.
 
@@ -122,7 +122,7 @@ For cached-date recalculation in production, POST `{"date":"2026-09-30"}` as JSO
 To exercise the actual local scheduled handler after `npm run preview`:
 
 ```sh
-curl 'http://localhost:8787/__scheduled?cron=30+0+*+*+*'
+curl 'http://localhost:8787/__scheduled?cron=30+6+*+*+*'
 ```
 
 This invokes with the current time and local secrets/database. On closed days it should skip. Run on an eligible evening to verify a real fetch. Tests use fixed clocks for holiday, weekend and cutoff cases.

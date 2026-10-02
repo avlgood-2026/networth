@@ -43,7 +43,7 @@ export async function recalculate(env:CloudflareEnv,date:string) {
  return {date,market_value:value};
 }
 export async function sync(env:CloudflareEnv,now=new Date(),scheduled=false) {
- // Cron at 00:30 UTC values the just-completed UTC day. Manual sync is a
+ // Cron at 06:30 UTC values the just-completed UTC day. Manual sync is a
  // current estimate using the latest completed stock/crypto closes.
  const date=new Date(now.getTime()-(scheduled?86400000:0)).toISOString().slice(0,10);
  const {version,tx,assets}=await transactionSnapshot(env);
@@ -51,12 +51,23 @@ export async function sync(env:CloudflareEnv,now=new Date(),scheduled=false) {
  if(!active.length) return {status:'skipped',reason:'No holdings for date',date};
  if(scheduled && !tradingDay(date) && !active.some(([ticker])=>assets.get(ticker)==='crypto')) return {status:'skipped',reason:'Market closed; no crypto holdings',date};
  const prices=new Map<string,string>(), fetched:{ticker:string;date:string;close:string}[]=[];
+ let lastRequest=0;
+ async function requestClose(ticker:string,date:string,kind:Asset['kind']) {
+  if(lastRequest) await new Promise(resolve=>setTimeout(resolve,Math.max(0,8100-(Date.now()-lastRequest))));
+  lastRequest=Date.now();
+  return fetchClose(ticker,date,env.TWELVE_DATA_API_KEY,fetch,kind);
+ }
  for(const [ticker] of active) {
   const kind=assets.get(ticker);
   if(!kind) throw new Error(`Unknown asset type for ${ticker}`);
-  const priceDate=kind==='stock'?latestCompleted(scheduled?new Date(date+'T23:30:00Z'):now):(scheduled?date:new Date(now.getTime()-86400000).toISOString().slice(0,10));
-  if(prices.size) await new Promise(resolve=>setTimeout(resolve,8100));
-  const close=await fetchClose(ticker,priceDate,env.TWELVE_DATA_API_KEY,fetch,kind);
+  let priceDate=kind==='stock'?latestCompleted(scheduled?new Date(date+'T23:30:00Z'):now):(scheduled?date:new Date(now.getTime()-86400000).toISOString().slice(0,10));
+  let close:string;
+  try { close=await requestClose(ticker,priceDate,kind); }
+  catch(error) {
+   if(scheduled || !(error instanceof Error) || !/No data is available on the specified dates|Final daily close unavailable/i.test(error.message)) throw error;
+   priceDate=kind==='stock'?latestCompleted(new Date(priceDate+'T12:00:00Z')):new Date(new Date(priceDate+'T12:00:00Z').getTime()-86400000).toISOString().slice(0,10);
+   close=await requestClose(ticker,priceDate,kind);
+  }
   prices.set(ticker,close); fetched.push({ticker,date:priceDate,close});
  }
  const value=valueAt(tx,date,prices);
