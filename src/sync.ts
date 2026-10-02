@@ -21,7 +21,7 @@ export async function fetchClose(ticker:string,date:string,key:string,fetcher:ty
  if(body.status==='error') throw new Error(`Twelve Data error ${body.code??'unknown'} for ${ticker}: ${String(body.message??'request rejected').replaceAll(key,'[redacted]').slice(0,160)}`);
  if(!bar) throw new Error(`Final daily close unavailable for ${ticker} on ${date}; provider returned ${body.values?.[0]?.datetime??'no date'}`);
  if(!/^\d+(\.\d+)?$/.test(bar.close) || Number(bar.close)<=0) throw new Error(`Invalid daily close for ${ticker} on ${date}`);
- if(body.meta?.currency!=='USD' || body.meta?.symbol!==ticker) throw new Error(`Unexpected currency or symbol for ${ticker} on ${date}`);
+ if(body.meta?.symbol!==ticker || (kind==='stock' && body.meta?.currency!=='USD')) throw new Error(`Unexpected market data metadata for ${ticker} on ${date} (symbol ${body.meta?.symbol??'missing'}, currency ${body.meta?.currency??'missing'})`);
  return bar.close;
 }
 async function transactionSnapshot(env:CloudflareEnv) {

@@ -37,6 +37,7 @@ test('market data refuses stale, unavailable, non USD and invalid prices',async(
   assert.equal(url.searchParams.get('end_date'),'2026-10-01');
   return Response.json({meta:{currency:'USD',symbol:'AAPL'},values:[{datetime:'2026-10-01',close:'202'},{datetime:'2026-09-30',close:'201'}]});
  }),'201');
+ assert.equal(await fetchClose('ETH/USD','2026-09-30','test',async()=>Response.json({meta:{symbol:'ETH/USD'},values:[{datetime:'2026-09-30',close:'3000'}]}),'crypto'),'3000');
  await assert.rejects(fetchClose('AAPL','2026-09-30','test',async()=>Response.json({status:'error',code:429,message:'credits exhausted for test'})),/credits exhausted for \[redacted\]/);
  await assert.rejects(fetchClose('AAPL','2026-09-30','test',async()=>Response.json({status:'error',code:400,message:'Invalid parameter'}, {status:400})),/Invalid parameter/);
 });
